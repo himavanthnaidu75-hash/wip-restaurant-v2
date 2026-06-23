@@ -37,12 +37,15 @@ export default function PastaScroll({ frames }: PastaScrollProps) {
     const dpr = window.devicePixelRatio || 1;
     const displayWidth = canvas.clientWidth;
     const displayHeight = canvas.clientHeight;
+    const bufferWidth = displayWidth * dpr;
+    const bufferHeight = displayHeight * dpr;
 
-    if (canvas.width !== displayWidth * dpr || canvas.height !== displayHeight * dpr) {
-      canvas.width = displayWidth * dpr;
-      canvas.height = displayHeight * dpr;
-      context.scale(dpr, dpr);
+    if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
+      canvas.width = bufferWidth;
+      canvas.height = bufferHeight;
     }
+
+    context.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const hRatio = displayWidth / img.width;
     const vRatio = displayHeight / img.height;
