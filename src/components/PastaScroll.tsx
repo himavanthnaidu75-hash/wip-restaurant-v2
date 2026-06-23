@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, useScroll, useTransform, useMotionValueEvent } from 'framer-motion';
 
 const TOTAL_FRAMES = 260;
@@ -14,8 +14,8 @@ const heroWords = ['Handmade', 'Pasta,', 'Made', 'With', 'Soul'];
 
 export default function PastaScroll() {
   const containerRef = useRef<HTMLDivElement>(null);
+  const bgRef = useRef<HTMLDivElement>(null);
   const [showHero, setShowHero] = useState(false);
-  const [frameSrc, setFrameSrc] = useState('/sequence/ezgif-frame-001.png');
   const loadedFrames = useRef<Map<number, string>>(new Map());
   const prevFrameRef = useRef(0);
 
@@ -33,20 +33,22 @@ export default function PastaScroll() {
   }, []);
 
   useEffect(() => {
-    const toLoad = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 220, 240, 259];
-    toLoad.forEach((idx) => {
-      if (loadedFrames.current.has(idx)) return;
+    const priority = [0, 1, 2, 3, 4, 5, 10, 20, 30, 50, 100, 130, 200, 259];
+    priority.forEach((idx) => {
       const img = new Image();
       img.onload = () => {
         loadedFrames.current.set(idx, generateFramePath(idx));
+        if (idx === 0 && bgRef.current) {
+          bgRef.current.style.backgroundImage = `url(${generateFramePath(0)})`;
+        }
       };
       img.src = generateFramePath(idx);
     });
 
-    const batchSize = 15;
     let start = 0;
     const interval = setInterval(() => {
-      for (let i = start; i < Math.min(start + batchSize, TOTAL_FRAMES); i++) {
+      const end = Math.min(start + 20, TOTAL_FRAMES);
+      for (let i = start; i < end; i++) {
         if (loadedFrames.current.has(i)) continue;
         const idx = i;
         const img = new Image();
@@ -55,31 +57,31 @@ export default function PastaScroll() {
         };
         img.src = generateFramePath(idx);
       }
-      start += batchSize;
+      start += 20;
       if (start >= TOTAL_FRAMES) clearInterval(interval);
-    }, 200);
+    }, 300);
 
     return () => clearInterval(interval);
   }, []);
 
-  const getNearestFrame = useCallback((target: number): string => {
-    if (loadedFrames.current.has(target)) {
-      return loadedFrames.current.get(target)!;
-    }
+  const getFrame = (target: number): string => {
+    if (loadedFrames.current.has(target)) return loadedFrames.current.get(target)!;
     for (let offset = 0; offset < TOTAL_FRAMES; offset++) {
-      const lower = target - offset;
-      if (lower >= 0 && loadedFrames.current.has(lower)) return loadedFrames.current.get(lower)!;
-      const upper = target + offset;
-      if (upper < TOTAL_FRAMES && loadedFrames.current.has(upper)) return loadedFrames.current.get(upper)!;
+      const lo = target - offset;
+      if (lo >= 0 && loadedFrames.current.has(lo)) return loadedFrames.current.get(lo)!;
+      const hi = target + offset;
+      if (hi < TOTAL_FRAMES && loadedFrames.current.has(hi)) return loadedFrames.current.get(hi)!;
     }
     return generateFramePath(0);
-  }, []);
+  };
 
   useMotionValueEvent(scrollYProgress, 'change', (v) => {
     const frameIndex = Math.min(TOTAL_FRAMES - 1, Math.floor(v * TOTAL_FRAMES));
     if (frameIndex === prevFrameRef.current) return;
     prevFrameRef.current = frameIndex;
-    setFrameSrc(getNearestFrame(frameIndex));
+    if (bgRef.current) {
+      bgRef.current.style.backgroundImage = `url(${getFrame(frameIndex)})`;
+    }
   });
 
   return (
@@ -88,12 +90,15 @@ export default function PastaScroll() {
         className="sticky top-0 flex h-screen w-full flex-col items-center justify-center overflow-hidden"
         style={{ opacity, y }}
       >
-        <img
-          src={frameSrc}
-          alt=""
-          aria-hidden="true"
-          className="absolute inset-0 h-full w-full object-cover"
-          style={{ backgroundColor: '#5f452e' }}
+        <div
+          ref={bgRef}
+          className="absolute inset-0"
+          style={{
+            backgroundImage: `url(${generateFramePath(0)})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            backgroundColor: '#5f452e',
+          }}
         />
 
         <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-5 text-center">
