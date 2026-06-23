@@ -17,7 +17,7 @@ const heroWords = ['Handmade', 'Pasta,', 'Made', 'With', 'Soul'];
 export default function PastaScroll() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const imagesRef = useRef<HTMLImageElement[]>([]);
+  const imagesRef = useRef<(HTMLImageElement | null)[]>([]);
   const prevFrameRef = useRef(-1);
   const rafRef = useRef<number>(0);
   const [currentFrame, setCurrentFrame] = useState(0);
@@ -33,30 +33,71 @@ export default function PastaScroll() {
 
   const preloadImages = useCallback(async () => {
     const paths = generateFramePaths();
-    const loadImage = (src: string): Promise<HTMLImageElement> =>
-      new Promise((resolve, reject) => {
+    const loadImage = (src: string): Promise<HTMLImageElement | null> =>
+      new Promise((resolve) => {
         const img = new Image();
         img.onload = () => resolve(img);
-        img.onerror = reject;
+        img.onerror = () => resolve(null);
         img.src = src;
       });
 
     const batchSize = 20;
-    const images: HTMLImageElement[] = [];
+    const images: (HTMLImageElement | null)[] = [];
 
     for (let i = 0; i < paths.length; i += batchSize) {
       const batch = paths.slice(i, i + batchSize);
       const loaded = await Promise.all(batch.map(loadImage));
       images.push(...loaded);
 
-      if (i === 0) setHeroReady(true);
+      if (i === 0) {
+        setHeroReady(true);
+      }
     }
 
     imagesRef.current = images;
+
+    // Draw the first frame immediately once loaded
+    const firstValid = images.findIndex((img) => img !== null);
+    if (firstValid !== -1) {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          const rect = canvas.getBoundingClientRect();
+          const w = rect.width;
+          const h = rect.height;
+          const img = images[firstValid]!;
+          const dpr = window.devicePixelRatio || 1;
+          canvas.width = w * dpr;
+          canvas.height = h * dpr;
+          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+          const imgRatio = img.naturalWidth / img.naturalHeight;
+          const canvasRatio = w / h;
+          let drawW: number, drawH: number, offsetX: number, offsetY: number;
+          if (imgRatio > canvasRatio) {
+            drawH = h;
+            drawW = h * imgRatio;
+            offsetX = (w - drawW) / 2;
+            offsetY = 0;
+          } else {
+            drawW = w;
+            drawH = w / imgRatio;
+            offsetX = 0;
+            offsetY = (h - drawH) / 2;
+          }
+          ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+          prevFrameRef.current = firstValid;
+        }
+      }
+    }
   }, []);
 
   useEffect(() => {
     preloadImages();
+
+    // Fallback: show hero even if images fail
+    const timer = setTimeout(() => setHeroReady(true), 4000);
+    return () => clearTimeout(timer);
   }, [preloadImages]);
 
   useEffect(() => {
@@ -78,6 +119,7 @@ export default function PastaScroll() {
         const w = rect.width;
         const h = rect.height;
         const img = imagesRef.current[prevFrameRef.current];
+        if (!img) return;
         const imgRatio = img.naturalWidth / img.naturalHeight;
         const canvasRatio = w / h;
         let drawW: number, drawH: number, offsetX: number, offsetY: number;
