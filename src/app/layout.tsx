@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import Footer from '@/components/Footer';
 import Navbar from '@/components/Navbar';
 import CustomCursor from '@/components/CustomCursor';
+import PageTransition from '@/components/PageTransition';
 import './globals.css';
 
 const geistSans = Geist({
@@ -59,7 +60,7 @@ export default function RootLayout({
         </a>
         <Navbar />
         <div id="main-content" className="flex-1">
-          {children}
+          <PageTransition>{children}</PageTransition>
         </div>
         <Footer />
       </body>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 
 const TOTAL_FRAMES = 260;
@@ -21,8 +21,11 @@ export default function PastaScroll() {
   const loadedCountRef = useRef(0);
   const prevFrameRef = useRef(-1);
   const rafRef = useRef<number>(0);
-  const [currentFrame, setCurrentFrame] = useState(0);
+  const pendingFrameRef = useRef(0);
+  const canvasSizeRef = useRef({ w: 0, h: 0 });
   const [showHero, setShowHero] = useState(false);
+  const [fallbackSrc, setFallbackSrc] = useState<string | null>(null);
+  const [canvasReady, setCanvasReady] = useState(false);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -32,22 +35,21 @@ export default function PastaScroll() {
   const opacity = useTransform(scrollYProgress, [0, 0.85, 1], [1, 1, 0]);
   const y = useTransform(scrollYProgress, [0, 1], [0, -80]);
 
-  // Show hero text immediately on mount
   useEffect(() => {
     const t = setTimeout(() => setShowHero(true), 200);
     return () => clearTimeout(t);
   }, []);
 
-  // Draw helper
-  const drawImageToCanvas = (img: HTMLImageElement) => {
+  const drawFrame = useCallback((frameIndex: number) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const w = rect.width;
-    const h = rect.height;
+    const img = imagesRef.current[frameIndex];
+    if (!img) return;
+
+    const { w, h } = canvasSizeRef.current;
     if (w === 0 || h === 0) return;
 
     const dpr = window.devicePixelRatio || 1;
@@ -73,9 +75,33 @@ export default function PastaScroll() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
-  };
 
-  // Load images progressively — each one goes into the ref immediately
+    prevFrameRef.current = frameIndex;
+    setCanvasReady(true);
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        canvasSizeRef.current = { w: width, h: height };
+
+        if (width > 0 && height > 0 && prevFrameRef.current === -1) {
+          const img = imagesRef.current[pendingFrameRef.current];
+          if (img) {
+            drawFrame(pendingFrameRef.current);
+          }
+        }
+      }
+    });
+
+    ro.observe(canvas);
+    return () => ro.disconnect();
+  }, [drawFrame]);
+
   useEffect(() => {
     let cancelled = false;
 
@@ -95,14 +121,24 @@ export default function PastaScroll() {
               imagesRef.current[idx] = img;
               loadedCountRef.current++;
 
-              // Draw frame 0 immediately when first image loads
-              if (idx === 0 || (prevFrameRef.current === -1 && loadedCountRef.current === 1)) {
-                drawImageToCanvas(img);
-                prevFrameRef.current = idx;
+              if (idx === 0) {
+                setFallbackSrc(generateFramePath(0));
+              }
+
+              if (prevFrameRef.current === -1) {
+                const { w, h } = canvasSizeRef.current;
+                if (w > 0 && h > 0) {
+                  drawFrame(idx);
+                } else {
+                  pendingFrameRef.current = idx;
+                }
               }
               resolve();
             };
-            img.onerror = () => { resolve(); };
+            img.onerror = () => {
+              if (cancelled) { resolve(); return; }
+              resolve();
+            };
             img.src = generateFramePath(idx);
           });
           promises.push(p);
@@ -114,9 +150,8 @@ export default function PastaScroll() {
 
     loadAll();
     return () => { cancelled = true; };
-  }, []);
+  }, [drawFrame]);
 
-  // Resize handler — redraw current frame on window resize
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -124,15 +159,14 @@ export default function PastaScroll() {
     const resize = () => {
       if (prevFrameRef.current >= 0) {
         const img = imagesRef.current[prevFrameRef.current];
-        if (img) drawImageToCanvas(img);
+        if (img) drawFrame(prevFrameRef.current);
       }
     };
 
     window.addEventListener('resize', resize);
     return () => window.removeEventListener('resize', resize);
-  }, []);
+  }, [drawFrame]);
 
-  // Scroll handler — draw the frame matching scroll position
   useEffect(() => {
     const unsubscribe = scrollYProgress.on('change', (v) => {
       cancelAnimationFrame(rafRef.current);
@@ -142,26 +176,21 @@ export default function PastaScroll() {
           Math.floor(v * TOTAL_FRAMES),
         );
 
-        setCurrentFrame(frameIndex);
-
         if (frameIndex === prevFrameRef.current) return;
 
         const img = imagesRef.current[frameIndex];
         if (!img) {
-          // Frame not loaded yet — find nearest loaded frame
           for (let offset = 1; offset < TOTAL_FRAMES; offset++) {
             const fallback = frameIndex + (offset % 2 === 1 ? -offset : offset);
             if (fallback >= 0 && fallback < TOTAL_FRAMES && imagesRef.current[fallback]) {
-              drawImageToCanvas(imagesRef.current[fallback]!);
-              prevFrameRef.current = fallback;
+              drawFrame(fallback);
               break;
             }
           }
           return;
         }
 
-        drawImageToCanvas(img);
-        prevFrameRef.current = frameIndex;
+        drawFrame(frameIndex);
       });
     });
 
@@ -169,7 +198,7 @@ export default function PastaScroll() {
       unsubscribe();
       cancelAnimationFrame(rafRef.current);
     };
-  }, [scrollYProgress]);
+  }, [scrollYProgress, drawFrame]);
 
   return (
     <div ref={containerRef} className="relative h-[300vh]">
@@ -177,6 +206,15 @@ export default function PastaScroll() {
         className="sticky top-0 flex h-screen w-full flex-col items-center justify-center overflow-hidden"
         style={{ opacity, y }}
       >
+        {fallbackSrc && (
+          <img
+            src={fallbackSrc}
+            alt=""
+            aria-hidden="true"
+            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${canvasReady ? 'opacity-0' : 'opacity-100'}`}
+          />
+        )}
+
         <canvas
           ref={canvasRef}
           className="absolute inset-0 h-full w-full"
@@ -271,7 +309,9 @@ export default function PastaScroll() {
 
         <div className="absolute bottom-8 right-8 z-10 text-xs tabular-nums">
           <span style={{ color: 'rgba(255,255,255,0.4)' }}>
-            {String(currentFrame + 1).padStart(3, '0')} / {TOTAL_FRAMES}
+            {String(Math.min(TOTAL_FRAMES, Math.floor(
+              (prevFrameRef.current >= 0 ? prevFrameRef.current : 0)
+            ) + 1)).padStart(3, '0')} / {TOTAL_FRAMES}
           </span>
         </div>
       </motion.div>
