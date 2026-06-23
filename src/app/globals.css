@@ -1,13 +1,25 @@
 @import "tailwindcss";
 
+@theme {
+  --color-wip-crust: #3d2c1a;
+  --color-wip-bg: #5f452e;
+  --color-wip-accent: #c84b31;
+  --color-wip-accent-light: #f1b2a3;
+  --color-wip-text: rgba(255, 255, 255, 0.6);
+  --color-wip-heading: rgba(255, 255, 255, 0.9);
+  --color-wip-muted: rgba(255, 255, 255, 0.4);
+  --color-wip-subtle: rgba(255, 255, 255, 0.05);
+  --color-wip-border: rgba(255, 255, 255, 0.1);
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;
   }
 
   body {
-    background-color: #5f452e;
-    color: rgba(255, 255, 255, 0.6);
+    background-color: var(--color-wip-bg);
+    color: var(--color-wip-text);
     font-family: var(--font-geist-sans), sans-serif;
     -webkit-font-smoothing: antialiased;
     letter-spacing: -0.025em;
@@ -19,13 +31,13 @@
   h4,
   h5,
   h6 {
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--color-wip-heading);
     font-weight: 500;
     letter-spacing: -0.05em;
   }
 
   :where(a, button, input, select, textarea):focus-visible {
-    outline: 2px solid #c84b31;
+    outline: 2px solid var(--color-wip-accent);
     outline-offset: 3px;
   }
 
@@ -35,7 +47,31 @@
   }
 
   select option {
-    background-color: #3d2c1a;
-    color: rgba(255, 255, 255, 0.9);
+    background-color: var(--color-wip-crust);
+    color: var(--color-wip-heading);
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@keyframes marquee-scroll {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-33.333%);
+  }
+}
+
+.marquee-track {
+  animation: marquee-scroll 25s linear infinite;
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import type { CSSProperties, FormEvent } from 'react';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import Modal from '@/components/Modal';
 
 const subjects = ['General Inquiry', 'Reservation', 'Event', 'Feedback'];
@@ -15,23 +15,80 @@ const fieldStyle = {
   color: 'rgba(255,255,255,0.9)',
 } satisfies CSSProperties;
 
+const fieldErrorStyle = {
+  backgroundColor: 'rgba(255,255,255,0.05)',
+  border: '1px solid #c84b31',
+  color: 'rgba(255,255,255,0.9)',
+} satisfies CSSProperties;
+
 const labelStyle = {
   color: 'rgba(255,255,255,0.68)',
 } satisfies CSSProperties;
 
+type FormErrors = {
+  name?: string;
+  email?: string;
+  message?: string;
+};
+
+function validateForm(data: {
+  name: string;
+  email: string;
+  message: string;
+}): FormErrors {
+  const errors: FormErrors = {};
+
+  if (!data.name.trim()) {
+    errors.name = 'Name is required';
+  }
+
+  if (!data.email.trim()) {
+    errors.email = 'Email is required';
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+    errors.email = 'Please enter a valid email address';
+  }
+
+  if (!data.message.trim()) {
+    errors.message = 'Message is required';
+  } else if (data.message.trim().length < 10) {
+    errors.message = 'Message must be at least 10 characters';
+  }
+
+  return errors;
+}
+
 export default function ContactForm() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [errors, setErrors] = useState<FormErrors>({});
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    setIsModalOpen(true);
-    event.currentTarget.reset();
-  };
+  const handleSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      const formData = new FormData(event.currentTarget);
+
+      const validationErrors = validateForm({
+        name: String(formData.get('name') || ''),
+        email: String(formData.get('email') || ''),
+        message: String(formData.get('message') || ''),
+      });
+
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors);
+        return;
+      }
+
+      setErrors({});
+      setIsModalOpen(true);
+      event.currentTarget.reset();
+    },
+    [],
+  );
 
   return (
     <>
       <form
         onSubmit={handleSubmit}
+        noValidate
         className="rounded-lg p-6 md:p-8"
         style={{
           backgroundColor: 'rgba(255,255,255,0.05)',
@@ -49,8 +106,16 @@ export default function ContactForm() {
               type="text"
               required
               className={`${fieldBaseClass} mt-2`}
-              style={fieldStyle}
+              style={errors.name ? fieldErrorStyle : fieldStyle}
+              aria-invalid={!!errors.name}
+              aria-describedby={errors.name ? 'contact-name-error' : undefined}
+              onChange={() => errors.name && setErrors((prev) => ({ ...prev, name: undefined }))}
             />
+            {errors.name && (
+              <p id="contact-name-error" className="mt-1 text-xs" style={{ color: '#c84b31' }}>
+                {errors.name}
+              </p>
+            )}
           </div>
 
           <div>
@@ -63,8 +128,16 @@ export default function ContactForm() {
               type="email"
               required
               className={`${fieldBaseClass} mt-2`}
-              style={fieldStyle}
+              style={errors.email ? fieldErrorStyle : fieldStyle}
+              aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? 'contact-email-error' : undefined}
+              onChange={() => errors.email && setErrors((prev) => ({ ...prev, email: undefined }))}
             />
+            {errors.email && (
+              <p id="contact-email-error" className="mt-1 text-xs" style={{ color: '#c84b31' }}>
+                {errors.email}
+              </p>
+            )}
           </div>
 
           <div>
@@ -100,8 +173,18 @@ export default function ContactForm() {
               rows={6}
               required
               className={`${fieldBaseClass} mt-2 resize-none`}
-              style={fieldStyle}
+              style={errors.message ? fieldErrorStyle : fieldStyle}
+              aria-invalid={!!errors.message}
+              aria-describedby={errors.message ? 'contact-message-error' : undefined}
+              onChange={() =>
+                errors.message && setErrors((prev) => ({ ...prev, message: undefined }))
+              }
             />
+            {errors.message && (
+              <p id="contact-message-error" className="mt-1 text-xs" style={{ color: '#c84b31' }}>
+                {errors.message}
+              </p>
+            )}
           </div>
         </div>
 

@@ -89,60 +89,72 @@ export default function MenuClient({ items }: MenuClientProps) {
           transition={{ duration: 0.28, ease: 'easeOut' }}
         >
           {filteredItems.map((item) => (
-            <article
+            <motion.article
               key={item.name}
-              className="rounded-lg p-6"
+              layout
+              className="group relative rounded-lg p-6 transition-all duration-300 hover:-translate-y-0.5"
               style={{
                 backgroundColor: 'rgba(255,255,255,0.05)',
                 border: '1px solid rgba(255,255,255,0.1)',
               }}
+              whileHover={{
+                boxShadow: '0 8px 32px rgba(200,75,49,0.15)',
+              }}
             >
-              <div className="mb-3 flex items-start justify-between gap-4">
-                <div>
-                  <h2
-                    className="text-xl font-semibold tracking-tight"
-                    style={{ color: 'rgba(255,255,255,0.9)' }}
-                  >
-                    {item.name}
-                  </h2>
+              <div
+                className="absolute inset-0 rounded-lg opacity-0 transition-opacity duration-300 group-hover:opacity-100"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(200,75,49,0.08) 0%, transparent 60%)',
+                }}
+              />
+              <div className="relative z-10">
+                <div className="mb-3 flex items-start justify-between gap-4">
+                  <div>
+                    <h2
+                      className="text-xl font-semibold tracking-tight transition-colors duration-200 group-hover:text-[#f1b2a3]"
+                      style={{ color: 'rgba(255,255,255,0.9)' }}
+                    >
+                      {item.name}
+                    </h2>
+                    <p
+                      className="mt-1 text-xs font-semibold uppercase tracking-[0.14em]"
+                      style={{ color: 'rgba(255,255,255,0.4)' }}
+                    >
+                      {item.category}
+                    </p>
+                  </div>
                   <p
-                    className="mt-1 text-xs font-semibold uppercase tracking-[0.14em]"
-                    style={{ color: 'rgba(255,255,255,0.4)' }}
+                    className="text-lg font-semibold transition-colors duration-200"
+                    style={{ color: '#c84b31' }}
                   >
-                    {item.category}
+                    {item.price}
                   </p>
                 </div>
                 <p
-                  className="text-lg font-semibold"
-                  style={{ color: '#c84b31' }}
+                  className="text-sm leading-6"
+                  style={{ color: 'rgba(255,255,255,0.62)' }}
                 >
-                  {item.price}
+                  {item.description}
                 </p>
+                {item.tags.length > 0 && (
+                  <div className="mt-5 flex flex-wrap gap-2" aria-label="Dietary tags">
+                    {item.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full px-2.5 py-1 text-xs font-semibold"
+                        style={{
+                          backgroundColor: 'rgba(200,75,49,0.16)',
+                          border: '1px solid rgba(200,75,49,0.28)',
+                          color: '#f1b2a3',
+                        }}
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
               </div>
-              <p
-                className="text-sm leading-6"
-                style={{ color: 'rgba(255,255,255,0.62)' }}
-              >
-                {item.description}
-              </p>
-              {item.tags.length > 0 && (
-                <div className="mt-5 flex flex-wrap gap-2" aria-label="Dietary tags">
-                  {item.tags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="rounded-full px-2.5 py-1 text-xs font-semibold"
-                      style={{
-                        backgroundColor: 'rgba(200,75,49,0.16)',
-                        border: '1px solid rgba(200,75,49,0.28)',
-                        color: '#f1b2a3',
-                      }}
-                    >
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </article>
+            </motion.article>
           ))}
         </motion.div>
       </AnimatePresence>

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import Footer from '@/components/Footer';
 import Navbar from '@/components/Navbar';
+import CustomCursor from '@/components/CustomCursor';
 import './globals.css';
 
 const geistSans = Geist({
@@ -45,6 +46,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        <CustomCursor />
         <a
           href="#main-content"
           className="sr-only z-[120] rounded-sm bg-white px-4 py-3 text-sm font-semibold text-[#3d2c1a] focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:outline-none focus:ring-2 focus:ring-[#c84b31] focus:ring-offset-2"

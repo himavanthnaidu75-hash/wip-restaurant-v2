@@ -1,222 +1,280 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { useScroll, useTransform, motion } from 'framer-motion';
+import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
 
-interface PastaScrollProps {
-  frames: string[];
+const TOTAL_FRAMES = 260;
+
+function generateFramePaths() {
+  return Array.from({ length: TOTAL_FRAMES }, (_, i) => {
+    const num = String(i + 1).padStart(4, '0');
+    return `/sequence/ezgif-frame-${num}.png`;
+  });
 }
 
-const INITIAL_LOAD_COUNT = 50;
+const heroWords = ['Handmade', 'Pasta,', 'Made', 'With', 'Soul'];
 
-export default function PastaScroll({ frames }: PastaScrollProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
+export default function PastaScroll() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imagesRef = useRef<(HTMLImageElement | null)[]>([]);
-  const currentFrameRef = useRef(0);
-
-  const [isLoading, setIsLoading] = useState(true);
-  const [loadProgress, setLoadProgress] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const imagesRef = useRef<HTMLImageElement[]>([]);
+  const prevFrameRef = useRef(-1);
+  const rafRef = useRef<number>(0);
+  const [currentFrame, setCurrentFrame] = useState(0);
+  const [heroReady, setHeroReady] = useState(false);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
-    offset: ["start start", "end end"]
+    offset: ['start start', 'end start'],
   });
 
-  const frameIndex = useTransform(scrollYProgress, [0, 1], [0, Math.max(0, frames.length - 1)]);
+  const opacity = useTransform(scrollYProgress, [0, 0.85, 1], [1, 1, 0]);
+  const y = useTransform(scrollYProgress, [0, 1], [0, -80]);
 
-  const renderFrame = useCallback((index: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const context = canvas.getContext('2d');
-    if (!context) return;
+  const preloadImages = useCallback(async () => {
+    const paths = generateFramePaths();
+    const loadImage = (src: string): Promise<HTMLImageElement> =>
+      new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = src;
+      });
 
-    const img = imagesRef.current[index];
-    if (!img) return;
+    const batchSize = 20;
+    const images: HTMLImageElement[] = [];
 
-    const dpr = window.devicePixelRatio || 1;
-    const displayWidth = canvas.clientWidth;
-    const displayHeight = canvas.clientHeight;
-    const bufferWidth = displayWidth * dpr;
-    const bufferHeight = displayHeight * dpr;
+    for (let i = 0; i < paths.length; i += batchSize) {
+      const batch = paths.slice(i, i + batchSize);
+      const loaded = await Promise.all(batch.map(loadImage));
+      images.push(...loaded);
 
-    if (canvas.width !== bufferWidth || canvas.height !== bufferHeight) {
-      canvas.width = bufferWidth;
-      canvas.height = bufferHeight;
+      if (i === 0) setHeroReady(true);
     }
 
-    context.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    const hRatio = displayWidth / img.width;
-    const vRatio = displayHeight / img.height;
-    const ratio = Math.max(hRatio, vRatio);
-    const drawW = img.width * ratio;
-    const drawH = img.height * ratio;
-    const offsetX = (displayWidth - drawW) / 2;
-    const offsetY = (displayHeight - drawH) / 2;
-
-    context.clearRect(0, 0, displayWidth, displayHeight);
-    context.drawImage(img, 0, 0, img.width, img.height, offsetX, offsetY, drawW, drawH);
+    imagesRef.current = images;
   }, []);
 
   useEffect(() => {
-    if (frames.length === 0) {
-      setIsLoading(false);
-      return;
-    }
-
-    imagesRef.current = new Array(frames.length).fill(null);
-    let initialLoadedCount = 0;
-    const targetInitialLoad = Math.min(frames.length, INITIAL_LOAD_COUNT);
-
-    const loadImage = (index: number): Promise<void> => {
-      return new Promise((resolve) => {
-        const img = new Image();
-        img.src = frames[index];
-        img.onload = () => {
-          imagesRef.current[index] = img;
-          resolve();
-        };
-        img.onerror = () => {
-          console.error(`Failed to load image: ${frames[index]}`);
-          resolve();
-        };
-      });
-    };
-
-    const loadInitial = async () => {
-      const promises: Promise<void>[] = [];
-      for (let i = 0; i < targetInitialLoad; i++) {
-        promises.push(
-          loadImage(i).then(() => {
-            initialLoadedCount++;
-            setLoadProgress(Math.floor((initialLoadedCount / targetInitialLoad) * 100));
-          })
-        );
-      }
-      await Promise.all(promises);
-      setIsLoading(false);
-      for (let i = targetInitialLoad; i < frames.length; i++) {
-        loadImage(i);
-      }
-    };
-
-    loadInitial();
-  }, [frames]);
+    preloadImages();
+  }, [preloadImages]);
 
   useEffect(() => {
-    if (isLoading || frames.length === 0) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-    const unsubscribe = frameIndex.on("change", (latest) => {
-      const idx = Math.round(latest);
-      if (idx !== currentFrameRef.current) {
-        currentFrameRef.current = idx;
-        renderFrame(idx);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const dpr = window.devicePixelRatio || 1;
+
+    const resize = () => {
+      const rect = canvas.getBoundingClientRect();
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      if (imagesRef.current[prevFrameRef.current]) {
+        const w = rect.width;
+        const h = rect.height;
+        const img = imagesRef.current[prevFrameRef.current];
+        const imgRatio = img.naturalWidth / img.naturalHeight;
+        const canvasRatio = w / h;
+        let drawW: number, drawH: number, offsetX: number, offsetY: number;
+
+        if (imgRatio > canvasRatio) {
+          drawH = h;
+          drawW = h * imgRatio;
+          offsetX = (w - drawW) / 2;
+          offsetY = 0;
+        } else {
+          drawW = w;
+          drawH = w / imgRatio;
+          offsetX = 0;
+          offsetY = (h - drawH) / 2;
+        }
+
+        ctx.clearRect(0, 0, w, h);
+        ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
       }
+    };
+
+    resize();
+    window.addEventListener('resize', resize);
+    return () => window.removeEventListener('resize', resize);
+  }, []);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const drawFrame = (frameIndex: number) => {
+      if (frameIndex === prevFrameRef.current) return;
+
+      const img = imagesRef.current[frameIndex];
+      if (!img) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const w = rect.width;
+      const h = rect.height;
+
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      const dpr = window.devicePixelRatio || 1;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const imgRatio = img.naturalWidth / img.naturalHeight;
+      const canvasRatio = w / h;
+      let drawW: number, drawH: number, offsetX: number, offsetY: number;
+
+      if (imgRatio > canvasRatio) {
+        drawH = h;
+        drawW = h * imgRatio;
+        offsetX = (w - drawW) / 2;
+        offsetY = 0;
+      } else {
+        drawW = w;
+        drawH = w / imgRatio;
+        offsetX = 0;
+        offsetY = (h - drawH) / 2;
+      }
+
+      ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+
+      prevFrameRef.current = frameIndex;
+    };
+
+    const unsubscribe = scrollYProgress.on('change', (v) => {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = requestAnimationFrame(() => {
+        const frameIndex = Math.min(
+          TOTAL_FRAMES - 1,
+          Math.floor(v * TOTAL_FRAMES),
+        );
+        setCurrentFrame(frameIndex);
+        drawFrame(frameIndex);
+      });
     });
 
-    renderFrame(0);
-
-    return () => unsubscribe();
-  }, [isLoading, frames, frameIndex, renderFrame]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      if (!isLoading && frames.length > 0) {
-        renderFrame(currentFrameRef.current);
-      }
+    return () => {
+      unsubscribe();
+      cancelAnimationFrame(rafRef.current);
     };
-
-    window.addEventListener('resize', handleResize);
-    handleResize();
-
-    return () => window.removeEventListener('resize', handleResize);
-  }, [isLoading, frames, renderFrame]);
+  }, [scrollYProgress]);
 
   return (
-    <div ref={containerRef} className="relative h-[400vh] w-full">
-      {isLoading && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ backgroundColor: '#5f452e' }}>
-          <div className="flex flex-col items-center gap-4">
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-[#c84b31] border-t-transparent"></div>
-            <p style={{ color: 'rgba(255,255,255,0.6)' }} className="tracking-widest text-sm uppercase">
-              Loading {loadProgress}%
-            </p>
-          </div>
-        </div>
-      )}
-
-      <div className="sticky top-0 h-screen w-full overflow-hidden flex items-center justify-center">
+    <div ref={containerRef} className="relative h-[300vh]">
+      <motion.div
+        className="sticky top-0 flex h-screen w-full flex-col items-center justify-center overflow-hidden"
+        style={{ opacity, y }}
+      >
         <canvas
           ref={canvasRef}
-          className="block w-full h-full"
-          style={{ imageRendering: 'auto' }}
+          className="absolute inset-0 h-full w-full"
+          style={{ backgroundColor: '#5f452e' }}
+          aria-hidden="true"
         />
 
-        <div className="absolute inset-0 pointer-events-none">
-          <div className="relative w-full h-full max-w-7xl mx-auto px-6">
-
-            {/* 0% Scroll: Title */}
-            <motion.div
-              style={{
-                opacity: useTransform(scrollYProgress, [0, 0.08, 0.12], [1, 1, 0]),
-                y: useTransform(scrollYProgress, [0, 0.12], [0, -40])
-              }}
-              className="absolute inset-0 flex items-center justify-center"
-            >
-              <h1 className="text-5xl md:text-7xl font-bold text-center tracking-tight" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                W.I.P <span style={{ color: '#c84b31' }}>Restaurant</span>
-              </h1>
-            </motion.div>
-
-            {/* 25% Scroll: Left text */}
-            <motion.div
-              style={{
-                opacity: useTransform(scrollYProgress, [0.2, 0.25, 0.3, 0.35], [0, 1, 1, 0]),
-                x: useTransform(scrollYProgress, [0.2, 0.35], [50, -50])
-              }}
-              className="absolute inset-y-0 left-6 md:left-24 flex items-center"
-            >
-              <h2 className="text-4xl md:text-6xl font-bold max-w-sm" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Fresh Ingredients.
-              </h2>
-            </motion.div>
-
-            {/* 50% Scroll: Right text */}
-            <motion.div
-              style={{
-                opacity: useTransform(scrollYProgress, [0.45, 0.5, 0.55, 0.6], [0, 1, 1, 0]),
-                x: useTransform(scrollYProgress, [0.45, 0.6], [-50, 50])
-              }}
-              className="absolute inset-y-0 right-6 md:right-24 flex items-center justify-end"
-            >
-              <h2 className="text-4xl md:text-6xl font-bold max-w-sm text-right" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Handmade with Love.
-              </h2>
-            </motion.div>
-
-            {/* 75% Scroll: CTA */}
-            <motion.div
-              style={{
-                opacity: useTransform(scrollYProgress, [0.7, 0.75, 1], [0, 1, 1]),
-                y: useTransform(scrollYProgress, [0.7, 0.8], [50, 0])
-              }}
-              className="absolute inset-0 flex flex-col items-center justify-center gap-8"
-            >
-              <h1 className="text-6xl md:text-8xl font-bold text-center" style={{ color: 'rgba(255,255,255,0.9)' }}>
-                Book Your Table
-              </h1>
-              <button
-                className="px-8 py-4 text-white rounded-full font-medium tracking-wide transition-colors pointer-events-auto"
-                style={{ backgroundColor: '#c84b31' }}
-              >
-                Reserve Now
-              </button>
-            </motion.div>
-
+        <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-5 text-center">
+          <div className="mb-4 flex flex-wrap items-baseline justify-center gap-x-3">
+            <AnimatePresence>
+              {heroReady &&
+                heroWords.map((word, i) => (
+                  <motion.span
+                    key={`${word}-${i}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{
+                      delay: 0.15 + i * 0.12,
+                      duration: 0.6,
+                      ease: [0.25, 0.1, 0.25, 1],
+                    }}
+                    className="text-5xl font-semibold tracking-tighter md:text-7xl lg:text-8xl"
+                    style={{ color: 'rgba(255,255,255,0.95)' }}
+                  >
+                    {word}
+                  </motion.span>
+                ))}
+            </AnimatePresence>
           </div>
+
+          <AnimatePresence>
+            {heroReady && (
+              <motion.p
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.9, duration: 0.7 }}
+                className="mb-10 max-w-lg text-base leading-7 md:text-lg"
+                style={{ color: 'rgba(255,255,255,0.55)' }}
+              >
+                Handmade pasta daily. Seasonal ingredients. Italian tradition, served with intention.
+              </motion.p>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {heroReady && (
+              <motion.div
+                initial={{ opacity: 0, y: 14 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 1.1, duration: 0.7 }}
+              >
+                <a
+                  href="#intro"
+                  className="rounded-full bg-[#c84b31] px-8 py-4 text-sm font-semibold tracking-tight text-white transition-colors hover:bg-[#a63d27]"
+                >
+                  Explore Our Menu
+                </a>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
-      </div>
+
+        <div className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: heroReady ? 0.4 : 0 }}
+            transition={{ delay: 1.3 }}
+            className="flex flex-col items-center gap-1.5"
+          >
+            <span className="text-[11px] font-semibold uppercase tracking-[0.2em]">
+              Scroll
+            </span>
+            <motion.div
+              animate={{ y: [0, 6, 0] }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <svg
+                width="16"
+                height="24"
+                viewBox="0 0 16 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <rect
+                  x="1"
+                  y="1"
+                  width="14"
+                  height="22"
+                  rx="7"
+                  stroke="white"
+                  strokeWidth="1.5"
+                />
+                <circle cx="8" cy="8" r="2" fill="white" />
+              </svg>
+            </motion.div>
+          </motion.div>
+        </div>
+
+        <div className="absolute bottom-8 right-8 z-10 text-xs tabular-nums">
+          <span style={{ color: 'rgba(255,255,255,0.4)' }}>
+            {String(currentFrame + 1).padStart(3, '0')} / {TOTAL_FRAMES}
+          </span>
+        </div>
+      </motion.div>
     </div>
   );
 }

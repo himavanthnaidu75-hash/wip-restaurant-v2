@@ -87,28 +87,27 @@ export default function ContactPage() {
               </div>
 
               <div
-                className="mt-8 aspect-[4/3] rounded-lg"
-                style={{
-                  background:
-                    'linear-gradient(135deg, rgba(200,75,49,0.68) 0%, rgba(95,69,46,0.95) 45%, rgba(61,44,26,1) 100%)',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                }}
-                aria-label="Styled map placeholder for Little Italy"
+                className="relative mt-8 aspect-[4/3] overflow-hidden rounded-lg"
+                style={{ border: '1px solid rgba(255,255,255,0.12)' }}
+                aria-label="Little Italy, New York streetscape"
               >
-                <div className="flex h-full items-end p-5">
-                  <div
-                    className="rounded-lg p-4"
-                    style={{
-                      backgroundColor: 'rgba(20,14,8,0.38)',
-                      border: '1px solid rgba(255,255,255,0.12)',
-                      color: 'rgba(255,255,255,0.82)',
-                    }}
-                  >
-                    <p className="text-sm font-semibold">Little Italy, NY</p>
-                    <p className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.58)' }}>
-                      123 Pasta Lane
-                    </p>
-                  </div>
+                <img
+                  src="/images/nyc-street.jpg"
+                  alt="Little Italy streetscape in New York City"
+                  className="absolute inset-0 h-full w-full object-cover"
+                  loading="lazy"
+                />
+                <div className="absolute bottom-5 left-5 rounded-lg p-4"
+                  style={{
+                    backgroundColor: 'rgba(20,14,8,0.38)',
+                    border: '1px solid rgba(255,255,255,0.12)',
+                    color: 'rgba(255,255,255,0.82)',
+                  }}
+                >
+                  <p className="text-sm font-semibold">Little Italy, NY</p>
+                  <p className="mt-1 text-xs" style={{ color: 'rgba(255,255,255,0.58)' }}>
+                    123 Pasta Lane
+                  </p>
                 </div>
               </div>
             </aside>
