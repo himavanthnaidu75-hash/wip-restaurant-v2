@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion, useScroll, useTransform, useMotionValueEvent } from 'framer-motion';
 
 const TOTAL_FRAMES = 260;
 
@@ -13,19 +13,11 @@ function generateFramePath(index: number): string {
 const heroWords = ['Handmade', 'Pasta,', 'Made', 'With', 'Soul'];
 
 export default function PastaScroll() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const imagesRef = useRef<(HTMLImageElement | null)[]>(
-    new Array(TOTAL_FRAMES).fill(null),
-  );
-  const loadedCountRef = useRef(0);
-  const prevFrameRef = useRef(-1);
-  const rafRef = useRef<number>(0);
-  const pendingFrameRef = useRef(0);
-  const canvasSizeRef = useRef({ w: 0, h: 0 });
   const [showHero, setShowHero] = useState(false);
-  const [fallbackSrc, setFallbackSrc] = useState<string | null>(null);
-  const [canvasReady, setCanvasReady] = useState(false);
+  const [frameSrc, setFrameSrc] = useState('/sequence/ezgif-frame-001.png');
+  const loadedFrames = useRef<Map<number, string>>(new Map());
+  const prevFrameRef = useRef(0);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -40,165 +32,55 @@ export default function PastaScroll() {
     return () => clearTimeout(t);
   }, []);
 
-  const drawFrame = useCallback((frameIndex: number) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+  useEffect(() => {
+    const toLoad = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 140, 160, 180, 200, 220, 240, 259];
+    toLoad.forEach((idx) => {
+      if (loadedFrames.current.has(idx)) return;
+      const img = new Image();
+      img.onload = () => {
+        loadedFrames.current.set(idx, generateFramePath(idx));
+      };
+      img.src = generateFramePath(idx);
+    });
 
-    const img = imagesRef.current[frameIndex];
-    if (!img) return;
+    const batchSize = 15;
+    let start = 0;
+    const interval = setInterval(() => {
+      for (let i = start; i < Math.min(start + batchSize, TOTAL_FRAMES); i++) {
+        if (loadedFrames.current.has(i)) continue;
+        const idx = i;
+        const img = new Image();
+        img.onload = () => {
+          loadedFrames.current.set(idx, generateFramePath(idx));
+        };
+        img.src = generateFramePath(idx);
+      }
+      start += batchSize;
+      if (start >= TOTAL_FRAMES) clearInterval(interval);
+    }, 200);
 
-    const { w, h } = canvasSizeRef.current;
-    if (w === 0 || h === 0) return;
-
-    const dpr = window.devicePixelRatio || 1;
-    canvas.width = w * dpr;
-    canvas.height = h * dpr;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-    const imgRatio = img.naturalWidth / img.naturalHeight;
-    const canvasRatio = w / h;
-    let drawW: number, drawH: number, offsetX: number, offsetY: number;
-
-    if (imgRatio > canvasRatio) {
-      drawH = h;
-      drawW = h * imgRatio;
-      offsetX = (w - drawW) / 2;
-      offsetY = 0;
-    } else {
-      drawW = w;
-      drawH = w / imgRatio;
-      offsetX = 0;
-      offsetY = (h - drawH) / 2;
-    }
-
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
-
-    prevFrameRef.current = frameIndex;
-    setCanvasReady(true);
+    return () => clearInterval(interval);
   }, []);
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+  const getNearestFrame = useCallback((target: number): string => {
+    if (loadedFrames.current.has(target)) {
+      return loadedFrames.current.get(target)!;
+    }
+    for (let offset = 0; offset < TOTAL_FRAMES; offset++) {
+      const lower = target - offset;
+      if (lower >= 0 && loadedFrames.current.has(lower)) return loadedFrames.current.get(lower)!;
+      const upper = target + offset;
+      if (upper < TOTAL_FRAMES && loadedFrames.current.has(upper)) return loadedFrames.current.get(upper)!;
+    }
+    return generateFramePath(0);
+  }, []);
 
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        canvasSizeRef.current = { w: width, h: height };
-
-        if (width > 0 && height > 0 && prevFrameRef.current === -1) {
-          const img = imagesRef.current[pendingFrameRef.current];
-          if (img) {
-            drawFrame(pendingFrameRef.current);
-          }
-        }
-      }
-    });
-
-    ro.observe(canvas);
-    return () => ro.disconnect();
-  }, [drawFrame]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadAll = async () => {
-      const batchSize = 15;
-
-      for (let start = 0; start < TOTAL_FRAMES; start += batchSize) {
-        const end = Math.min(start + batchSize, TOTAL_FRAMES);
-        const promises: Promise<void>[] = [];
-
-        for (let i = start; i < end; i++) {
-          const idx = i;
-          const p = new Promise<void>((resolve) => {
-            const img = new Image();
-            img.onload = () => {
-              if (cancelled) { resolve(); return; }
-              imagesRef.current[idx] = img;
-              loadedCountRef.current++;
-
-              if (idx === 0) {
-                setFallbackSrc(generateFramePath(0));
-              }
-
-              if (prevFrameRef.current === -1) {
-                const { w, h } = canvasSizeRef.current;
-                if (w > 0 && h > 0) {
-                  drawFrame(idx);
-                } else {
-                  pendingFrameRef.current = idx;
-                }
-              }
-              resolve();
-            };
-            img.onerror = () => {
-              if (cancelled) { resolve(); return; }
-              resolve();
-            };
-            img.src = generateFramePath(idx);
-          });
-          promises.push(p);
-        }
-
-        await Promise.all(promises);
-      }
-    };
-
-    loadAll();
-    return () => { cancelled = true; };
-  }, [drawFrame]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const resize = () => {
-      if (prevFrameRef.current >= 0) {
-        const img = imagesRef.current[prevFrameRef.current];
-        if (img) drawFrame(prevFrameRef.current);
-      }
-    };
-
-    window.addEventListener('resize', resize);
-    return () => window.removeEventListener('resize', resize);
-  }, [drawFrame]);
-
-  useEffect(() => {
-    const unsubscribe = scrollYProgress.on('change', (v) => {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = requestAnimationFrame(() => {
-        const frameIndex = Math.min(
-          TOTAL_FRAMES - 1,
-          Math.floor(v * TOTAL_FRAMES),
-        );
-
-        if (frameIndex === prevFrameRef.current) return;
-
-        const img = imagesRef.current[frameIndex];
-        if (!img) {
-          for (let offset = 1; offset < TOTAL_FRAMES; offset++) {
-            const fallback = frameIndex + (offset % 2 === 1 ? -offset : offset);
-            if (fallback >= 0 && fallback < TOTAL_FRAMES && imagesRef.current[fallback]) {
-              drawFrame(fallback);
-              break;
-            }
-          }
-          return;
-        }
-
-        drawFrame(frameIndex);
-      });
-    });
-
-    return () => {
-      unsubscribe();
-      cancelAnimationFrame(rafRef.current);
-    };
-  }, [scrollYProgress, drawFrame]);
+  useMotionValueEvent(scrollYProgress, 'change', (v) => {
+    const frameIndex = Math.min(TOTAL_FRAMES - 1, Math.floor(v * TOTAL_FRAMES));
+    if (frameIndex === prevFrameRef.current) return;
+    prevFrameRef.current = frameIndex;
+    setFrameSrc(getNearestFrame(frameIndex));
+  });
 
   return (
     <div ref={containerRef} className="relative h-[300vh]">
@@ -206,20 +88,12 @@ export default function PastaScroll() {
         className="sticky top-0 flex h-screen w-full flex-col items-center justify-center overflow-hidden"
         style={{ opacity, y }}
       >
-        {fallbackSrc && (
-          <img
-            src={fallbackSrc}
-            alt=""
-            aria-hidden="true"
-            className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${canvasReady ? 'opacity-0' : 'opacity-100'}`}
-          />
-        )}
-
-        <canvas
-          ref={canvasRef}
-          className="absolute inset-0 h-full w-full"
-          style={{ backgroundColor: '#5f452e' }}
+        <img
+          src={frameSrc}
+          alt=""
           aria-hidden="true"
+          className="absolute inset-0 h-full w-full object-cover"
+          style={{ backgroundColor: '#5f452e' }}
         />
 
         <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-5 text-center">
@@ -309,9 +183,7 @@ export default function PastaScroll() {
 
         <div className="absolute bottom-8 right-8 z-10 text-xs tabular-nums">
           <span style={{ color: 'rgba(255,255,255,0.4)' }}>
-            {String(Math.min(TOTAL_FRAMES, Math.floor(
-              (prevFrameRef.current >= 0 ? prevFrameRef.current : 0)
-            ) + 1)).padStart(3, '0')} / {TOTAL_FRAMES}
+            {String(prevFrameRef.current + 1).padStart(3, '0')} / {TOTAL_FRAMES}
           </span>
         </div>
       </motion.div>
