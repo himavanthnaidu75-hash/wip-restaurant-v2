@@ -22,6 +22,10 @@ export const metadata: Metadata = {
   },
   description:
     'Experience authentic handmade pasta at W.I.P Restaurant. Fresh ingredients, traditional Italian recipes, and a warm atmosphere in the heart of Little Italy, New York.',
+  icons: {
+    icon: '/favicon.svg',
+    apple: '/favicon.svg',
+  },
   openGraph: {
     title: 'W.I.P Restaurant',
     description: 'Authentic handmade pasta in Little Italy, NY',

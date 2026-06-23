@@ -1,15 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
-import { motion, useScroll, useTransform, AnimatePresence } from 'framer-motion';
+import { useEffect, useRef, useState } from 'react';
+import { motion, useScroll, useTransform } from 'framer-motion';
 
 const TOTAL_FRAMES = 260;
 
-function generateFramePaths() {
-  return Array.from({ length: TOTAL_FRAMES }, (_, i) => {
-    const num = String(i + 1).padStart(4, '0');
-    return `/sequence/ezgif-frame-${num}.png`;
-  });
+function generateFramePath(index: number): string {
+  const num = String(index + 1).padStart(4, '0');
+  return `/sequence/ezgif-frame-${num}.png`;
 }
 
 const heroWords = ['Handmade', 'Pasta,', 'Made', 'With', 'Soul'];
@@ -17,11 +15,14 @@ const heroWords = ['Handmade', 'Pasta,', 'Made', 'With', 'Soul'];
 export default function PastaScroll() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const imagesRef = useRef<(HTMLImageElement | null)[]>([]);
+  const imagesRef = useRef<(HTMLImageElement | null)[]>(
+    new Array(TOTAL_FRAMES).fill(null),
+  );
+  const loadedCountRef = useRef(0);
   const prevFrameRef = useRef(-1);
   const rafRef = useRef<number>(0);
   const [currentFrame, setCurrentFrame] = useState(0);
-  const [heroReady, setHeroReady] = useState(false);
+  const [showHero, setShowHero] = useState(false);
 
   const { scrollYProgress } = useScroll({
     target: containerRef,
@@ -31,164 +32,108 @@ export default function PastaScroll() {
   const opacity = useTransform(scrollYProgress, [0, 0.85, 1], [1, 1, 0]);
   const y = useTransform(scrollYProgress, [0, 1], [0, -80]);
 
-  const preloadImages = useCallback(async () => {
-    const paths = generateFramePaths();
-    const loadImage = (src: string): Promise<HTMLImageElement | null> =>
-      new Promise((resolve) => {
-        const img = new Image();
-        img.onload = () => resolve(img);
-        img.onerror = () => resolve(null);
-        img.src = src;
-      });
-
-    const batchSize = 20;
-    const images: (HTMLImageElement | null)[] = [];
-
-    for (let i = 0; i < paths.length; i += batchSize) {
-      const batch = paths.slice(i, i + batchSize);
-      const loaded = await Promise.all(batch.map(loadImage));
-      images.push(...loaded);
-
-      if (i === 0) {
-        setHeroReady(true);
-      }
-    }
-
-    imagesRef.current = images;
-
-    // Draw the first frame immediately once loaded
-    const firstValid = images.findIndex((img) => img !== null);
-    if (firstValid !== -1) {
-      const canvas = canvasRef.current;
-      if (canvas) {
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          const rect = canvas.getBoundingClientRect();
-          const w = rect.width;
-          const h = rect.height;
-          const img = images[firstValid]!;
-          const dpr = window.devicePixelRatio || 1;
-          canvas.width = w * dpr;
-          canvas.height = h * dpr;
-          ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-          const imgRatio = img.naturalWidth / img.naturalHeight;
-          const canvasRatio = w / h;
-          let drawW: number, drawH: number, offsetX: number, offsetY: number;
-          if (imgRatio > canvasRatio) {
-            drawH = h;
-            drawW = h * imgRatio;
-            offsetX = (w - drawW) / 2;
-            offsetY = 0;
-          } else {
-            drawW = w;
-            drawH = w / imgRatio;
-            offsetX = 0;
-            offsetY = (h - drawH) / 2;
-          }
-          ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
-          prevFrameRef.current = firstValid;
-        }
-      }
-    }
+  // Show hero text immediately on mount
+  useEffect(() => {
+    const t = setTimeout(() => setShowHero(true), 200);
+    return () => clearTimeout(t);
   }, []);
 
+  // Draw helper
+  const drawImageToCanvas = (img: HTMLImageElement) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const w = rect.width;
+    const h = rect.height;
+    if (w === 0 || h === 0) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = w * dpr;
+    canvas.height = h * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    const imgRatio = img.naturalWidth / img.naturalHeight;
+    const canvasRatio = w / h;
+    let drawW: number, drawH: number, offsetX: number, offsetY: number;
+
+    if (imgRatio > canvasRatio) {
+      drawH = h;
+      drawW = h * imgRatio;
+      offsetX = (w - drawW) / 2;
+      offsetY = 0;
+    } else {
+      drawW = w;
+      drawH = w / imgRatio;
+      offsetX = 0;
+      offsetY = (h - drawH) / 2;
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+  };
+
+  // Load images progressively — each one goes into the ref immediately
   useEffect(() => {
-    preloadImages();
+    let cancelled = false;
 
-    // Fallback: show hero even if images fail
-    const timer = setTimeout(() => setHeroReady(true), 4000);
-    return () => clearTimeout(timer);
-  }, [preloadImages]);
+    const loadAll = async () => {
+      const batchSize = 15;
 
+      for (let start = 0; start < TOTAL_FRAMES; start += batchSize) {
+        const end = Math.min(start + batchSize, TOTAL_FRAMES);
+        const promises: Promise<void>[] = [];
+
+        for (let i = start; i < end; i++) {
+          const idx = i;
+          const p = new Promise<void>((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              if (cancelled) { resolve(); return; }
+              imagesRef.current[idx] = img;
+              loadedCountRef.current++;
+
+              // Draw frame 0 immediately when first image loads
+              if (idx === 0 || (prevFrameRef.current === -1 && loadedCountRef.current === 1)) {
+                drawImageToCanvas(img);
+                prevFrameRef.current = idx;
+              }
+              resolve();
+            };
+            img.onerror = () => { resolve(); };
+            img.src = generateFramePath(idx);
+          });
+          promises.push(p);
+        }
+
+        await Promise.all(promises);
+      }
+    };
+
+    loadAll();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Resize handler — redraw current frame on window resize
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const dpr = window.devicePixelRatio || 1;
-
     const resize = () => {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      if (imagesRef.current[prevFrameRef.current]) {
-        const w = rect.width;
-        const h = rect.height;
+      if (prevFrameRef.current >= 0) {
         const img = imagesRef.current[prevFrameRef.current];
-        if (!img) return;
-        const imgRatio = img.naturalWidth / img.naturalHeight;
-        const canvasRatio = w / h;
-        let drawW: number, drawH: number, offsetX: number, offsetY: number;
-
-        if (imgRatio > canvasRatio) {
-          drawH = h;
-          drawW = h * imgRatio;
-          offsetX = (w - drawW) / 2;
-          offsetY = 0;
-        } else {
-          drawW = w;
-          drawH = w / imgRatio;
-          offsetX = 0;
-          offsetY = (h - drawH) / 2;
-        }
-
-        ctx.clearRect(0, 0, w, h);
-        ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+        if (img) drawImageToCanvas(img);
       }
     };
 
-    resize();
     window.addEventListener('resize', resize);
     return () => window.removeEventListener('resize', resize);
   }, []);
 
+  // Scroll handler — draw the frame matching scroll position
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    const drawFrame = (frameIndex: number) => {
-      if (frameIndex === prevFrameRef.current) return;
-
-      const img = imagesRef.current[frameIndex];
-      if (!img) return;
-
-      const rect = canvas.getBoundingClientRect();
-      const w = rect.width;
-      const h = rect.height;
-
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-      const dpr = window.devicePixelRatio || 1;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-      const imgRatio = img.naturalWidth / img.naturalHeight;
-      const canvasRatio = w / h;
-      let drawW: number, drawH: number, offsetX: number, offsetY: number;
-
-      if (imgRatio > canvasRatio) {
-        drawH = h;
-        drawW = h * imgRatio;
-        offsetX = (w - drawW) / 2;
-        offsetY = 0;
-      } else {
-        drawW = w;
-        drawH = w / imgRatio;
-        offsetX = 0;
-        offsetY = (h - drawH) / 2;
-      }
-
-      ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
-
-      prevFrameRef.current = frameIndex;
-    };
-
     const unsubscribe = scrollYProgress.on('change', (v) => {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(() => {
@@ -196,8 +141,27 @@ export default function PastaScroll() {
           TOTAL_FRAMES - 1,
           Math.floor(v * TOTAL_FRAMES),
         );
+
         setCurrentFrame(frameIndex);
-        drawFrame(frameIndex);
+
+        if (frameIndex === prevFrameRef.current) return;
+
+        const img = imagesRef.current[frameIndex];
+        if (!img) {
+          // Frame not loaded yet — find nearest loaded frame
+          for (let offset = 1; offset < TOTAL_FRAMES; offset++) {
+            const fallback = frameIndex + (offset % 2 === 1 ? -offset : offset);
+            if (fallback >= 0 && fallback < TOTAL_FRAMES && imagesRef.current[fallback]) {
+              drawImageToCanvas(imagesRef.current[fallback]!);
+              prevFrameRef.current = fallback;
+              break;
+            }
+          }
+          return;
+        }
+
+        drawImageToCanvas(img);
+        prevFrameRef.current = frameIndex;
       });
     });
 
@@ -222,64 +186,58 @@ export default function PastaScroll() {
 
         <div className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-5 text-center">
           <div className="mb-4 flex flex-wrap items-baseline justify-center gap-x-3">
-            <AnimatePresence>
-              {heroReady &&
-                heroWords.map((word, i) => (
-                  <motion.span
-                    key={`${word}-${i}`}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{
-                      delay: 0.15 + i * 0.12,
-                      duration: 0.6,
-                      ease: [0.25, 0.1, 0.25, 1],
-                    }}
-                    className="text-5xl font-semibold tracking-tighter md:text-7xl lg:text-8xl"
-                    style={{ color: 'rgba(255,255,255,0.95)' }}
-                  >
-                    {word}
-                  </motion.span>
-                ))}
-            </AnimatePresence>
+            {showHero &&
+              heroWords.map((word, i) => (
+                <motion.span
+                  key={`${word}-${i}`}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    delay: 0.1 + i * 0.12,
+                    duration: 0.6,
+                    ease: [0.25, 0.1, 0.25, 1],
+                  }}
+                  className="text-5xl font-semibold tracking-tighter md:text-7xl lg:text-8xl"
+                  style={{ color: 'rgba(255,255,255,0.95)' }}
+                >
+                  {word}
+                </motion.span>
+              ))}
           </div>
 
-          <AnimatePresence>
-            {heroReady && (
-              <motion.p
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.9, duration: 0.7 }}
-                className="mb-10 max-w-lg text-base leading-7 md:text-lg"
-                style={{ color: 'rgba(255,255,255,0.55)' }}
-              >
-                Handmade pasta daily. Seasonal ingredients. Italian tradition, served with intention.
-              </motion.p>
-            )}
-          </AnimatePresence>
+          {showHero && (
+            <motion.p
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.8, duration: 0.7 }}
+              className="mb-10 max-w-lg text-base leading-7 md:text-lg"
+              style={{ color: 'rgba(255,255,255,0.55)' }}
+            >
+              Handmade pasta daily. Seasonal ingredients. Italian tradition, served with intention.
+            </motion.p>
+          )}
 
-          <AnimatePresence>
-            {heroReady && (
-              <motion.div
-                initial={{ opacity: 0, y: 14 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.1, duration: 0.7 }}
+          {showHero && (
+            <motion.div
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 1.0, duration: 0.7 }}
+            >
+              <a
+                href="#intro"
+                className="rounded-full bg-[#c84b31] px-8 py-4 text-sm font-semibold tracking-tight text-white transition-colors hover:bg-[#a63d27]"
               >
-                <a
-                  href="#intro"
-                  className="rounded-full bg-[#c84b31] px-8 py-4 text-sm font-semibold tracking-tight text-white transition-colors hover:bg-[#a63d27]"
-                >
-                  Explore Our Menu
-                </a>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                Explore Our Menu
+              </a>
+            </motion.div>
+          )}
         </div>
 
         <div className="absolute bottom-8 left-1/2 z-10 -translate-x-1/2">
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: heroReady ? 0.4 : 0 }}
-            transition={{ delay: 1.3 }}
+            animate={{ opacity: showHero ? 0.4 : 0 }}
+            transition={{ delay: 1.2 }}
             className="flex flex-col items-center gap-1.5"
           >
             <span className="text-[11px] font-semibold uppercase tracking-[0.2em]">

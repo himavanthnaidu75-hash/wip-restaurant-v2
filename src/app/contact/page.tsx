@@ -92,8 +92,8 @@ export default function ContactPage() {
                 aria-label="Little Italy, New York streetscape"
               >
                 <img
-                  src="/images/nyc-street.jpg"
-                  alt="Little Italy streetscape in New York City"
+                  src="https://images.unsplash.com/photo-1569336415962-a4bd9f609a1b?w=600&h=450&fit=crop&q=80"
+                  alt="Little Italy streetscape in New York City with historic brownstones and cafe awnings"
                   className="absolute inset-0 h-full w-full object-cover"
                   loading="lazy"
                 />
