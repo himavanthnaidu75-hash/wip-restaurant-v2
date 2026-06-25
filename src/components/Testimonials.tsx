@@ -37,11 +37,12 @@ function StarRating({ count }: { count: number }) {
       {Array.from({ length: count }, (_, i) => (
         <svg
           key={i}
-          width="16"
-          height="16"
+          width="18"
+          height="18"
           viewBox="0 0 24 24"
-          fill="#c84b31"
+          fill="#d4a853"
           aria-hidden="true"
+          className="drop-shadow-[0_0_4px_rgba(212,168,83,0.3)]"
         >
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
         </svg>
@@ -67,51 +68,72 @@ export default function Testimonials() {
   }, [next]);
 
   return (
-    <section className="px-5 py-24 md:px-8" style={{ backgroundColor: '#5f452e' }}>
-      <SectionReveal className="mb-14 text-center">
+    <section className="relative overflow-hidden px-5 py-28 md:px-8" style={{ backgroundColor: '#5f452e' }}>
+      {/* Decorative corner accents */}
+      <div className="pointer-events-none absolute left-8 top-8 h-16 w-[1px] bg-[#d4a853]/20" />
+      <div className="pointer-events-none absolute left-8 top-8 h-[1px] w-16 bg-[#d4a853]/20" />
+      <div className="pointer-events-none absolute right-8 bottom-8 h-16 w-[1px] bg-[#d4a853]/20" />
+      <div className="pointer-events-none absolute right-8 bottom-8 h-[1px] w-16 bg-[#d4a853]/20" />
+
+      <SectionReveal className="mb-16 text-center">
         <p
-          className="mb-4 text-sm font-semibold uppercase tracking-[0.16em]"
-          style={{ color: '#c84b31' }}
+          className="mb-4 text-xs font-semibold uppercase tracking-[0.25em]"
+          style={{ color: '#d4a853' }}
         >
           What Guests Say
         </p>
-        <h2 className="text-4xl font-semibold tracking-tighter md:text-5xl">
+        <h2 className="font-display text-4xl font-semibold tracking-tight md:text-5xl">
           Voices from Our Table
         </h2>
+        <div className="mx-auto mt-6 h-[1px] w-12 bg-[#d4a853]/40" />
       </SectionReveal>
 
       <div className="mx-auto max-w-3xl">
-        <div className="relative min-h-[220px]">
+        <div className="relative min-h-[240px]">
           <AnimatePresence mode="wait">
             <motion.div
               key={current}
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -30 }}
-              transition={{ duration: 0.4, ease: 'easeOut' }}
-              className="absolute inset-0 rounded-lg p-8 text-center"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.5, ease: [0.25, 0.1, 0.25, 1] }}
+              className="absolute inset-0 rounded-2xl p-10 text-center"
               style={{
-                backgroundColor: 'rgba(255,255,255,0.05)',
-                border: '1px solid rgba(255,255,255,0.1)',
+                backgroundColor: 'rgba(255,255,255,0.04)',
+                backdropFilter: 'blur(12px)',
+                border: '1px solid rgba(212,168,83,0.1)',
               }}
             >
-              <StarRating count={testimonials[current].rating} />
+              <div className="flex justify-center">
+                <StarRating count={testimonials[current].rating} />
+              </div>
+
+              {/* Decorative quote marks */}
+              <div
+                className="pointer-events-none select-none font-display text-6xl leading-none"
+                style={{ color: 'rgba(212,168,83,0.15)' }}
+              >
+                &ldquo;
+              </div>
+
               <p
-                className="mt-5 text-lg leading-7 md:text-xl"
+                className="-mt-4 text-lg leading-relaxed md:text-xl"
                 style={{ color: 'rgba(255,255,255,0.85)' }}
               >
-                &ldquo;{testimonials[current].text}&rdquo;
+                {testimonials[current].text}
               </p>
-              <div className="mt-6">
+
+              <div className="mt-8">
+                <div className="mx-auto mb-2 h-[1px] w-8 bg-[#d4a853]/30" />
                 <p
-                  className="text-sm font-semibold"
+                  className="text-sm font-semibold tracking-tight"
                   style={{ color: 'rgba(255,255,255,0.9)' }}
                 >
                   {testimonials[current].name}
                 </p>
                 <p
-                  className="text-xs"
-                  style={{ color: 'rgba(255,255,255,0.45)' }}
+                  className="mt-0.5 text-xs uppercase tracking-[0.15em]"
+                  style={{ color: 'rgba(255,255,255,0.4)' }}
                 >
                   {testimonials[current].role}
                 </p>
@@ -120,15 +142,15 @@ export default function Testimonials() {
           </AnimatePresence>
         </div>
 
-        <div className="mt-8 flex items-center justify-center gap-4">
+        <div className="mt-10 flex items-center justify-center gap-4">
           <button
             type="button"
             onClick={prev}
             aria-label="Previous testimonial"
-            className="flex h-10 w-10 items-center justify-center rounded-full transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 hover:border-[#d4a853] hover:text-[#d4a853]"
             style={{
-              border: '1px solid rgba(255,255,255,0.15)',
-              color: 'rgba(255,255,255,0.6)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              color: 'rgba(255,255,255,0.5)',
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -142,10 +164,10 @@ export default function Testimonials() {
                 type="button"
                 onClick={() => setCurrent(i)}
                 aria-label={`Go to testimonial ${i + 1}`}
-                className="h-2 rounded-full transition-all duration-300"
+                className="h-2 rounded-full transition-all duration-500"
                 style={{
-                  width: i === current ? '24px' : '8px',
-                  backgroundColor: i === current ? '#c84b31' : 'rgba(255,255,255,0.2)',
+                  width: i === current ? '28px' : '8px',
+                  backgroundColor: i === current ? '#d4a853' : 'rgba(255,255,255,0.15)',
                 }}
               />
             ))}
@@ -154,10 +176,10 @@ export default function Testimonials() {
             type="button"
             onClick={next}
             aria-label="Next testimonial"
-            className="flex h-10 w-10 items-center justify-center rounded-full transition-colors"
+            className="flex h-10 w-10 items-center justify-center rounded-full transition-all duration-300 hover:border-[#d4a853] hover:text-[#d4a853]"
             style={{
-              border: '1px solid rgba(255,255,255,0.15)',
-              color: 'rgba(255,255,255,0.6)',
+              border: '1px solid rgba(255,255,255,0.12)',
+              color: 'rgba(255,255,255,0.5)',
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

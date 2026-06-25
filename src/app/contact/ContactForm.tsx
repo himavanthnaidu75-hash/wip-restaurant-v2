@@ -7,22 +7,22 @@ import Modal from '@/components/Modal';
 const subjects = ['General Inquiry', 'Reservation', 'Event', 'Feedback'];
 
 const fieldBaseClass =
-  'w-full rounded-lg px-4 py-3 text-sm transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c84b31] focus-visible:ring-offset-2 focus-visible:ring-offset-[#5f452e]';
+  'w-full rounded-lg px-4 py-3 text-sm transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a853] focus-visible:ring-offset-2 focus-visible:ring-offset-[#5f452e]';
 
 const fieldStyle = {
-  backgroundColor: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.1)',
+  backgroundColor: 'rgba(255,255,255,0.04)',
+  border: '1px solid rgba(255,255,255,0.08)',
   color: 'rgba(255,255,255,0.9)',
 } satisfies CSSProperties;
 
 const fieldErrorStyle = {
-  backgroundColor: 'rgba(255,255,255,0.05)',
+  backgroundColor: 'rgba(255,255,255,0.04)',
   border: '1px solid #c84b31',
   color: 'rgba(255,255,255,0.9)',
 } satisfies CSSProperties;
 
 const labelStyle = {
-  color: 'rgba(255,255,255,0.68)',
+  color: 'rgba(255,255,255,0.65)',
 } satisfies CSSProperties;
 
 type FormErrors = {
@@ -89,10 +89,11 @@ export default function ContactForm() {
       <form
         onSubmit={handleSubmit}
         noValidate
-        className="rounded-lg p-6 md:p-8"
+        className="rounded-xl p-6 md:p-8"
         style={{
-          backgroundColor: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.1)',
+          backgroundColor: 'rgba(255,255,255,0.04)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(212,168,83,0.1)',
         }}
       >
         <div className="space-y-6">
@@ -112,7 +113,7 @@ export default function ContactForm() {
               onChange={() => errors.name && setErrors((prev) => ({ ...prev, name: undefined }))}
             />
             {errors.name && (
-              <p id="contact-name-error" className="mt-1 text-xs" style={{ color: '#c84b31' }}>
+              <p id="contact-name-error" className="mt-1.5 text-xs" style={{ color: '#ffb4a8' }}>
                 {errors.name}
               </p>
             )}
@@ -134,7 +135,7 @@ export default function ContactForm() {
               onChange={() => errors.email && setErrors((prev) => ({ ...prev, email: undefined }))}
             />
             {errors.email && (
-              <p id="contact-email-error" className="mt-1 text-xs" style={{ color: '#c84b31' }}>
+              <p id="contact-email-error" className="mt-1.5 text-xs" style={{ color: '#ffb4a8' }}>
                 {errors.email}
               </p>
             )}
@@ -181,7 +182,7 @@ export default function ContactForm() {
               }
             />
             {errors.message && (
-              <p id="contact-message-error" className="mt-1 text-xs" style={{ color: '#c84b31' }}>
+              <p id="contact-message-error" className="mt-1.5 text-xs" style={{ color: '#ffb4a8' }}>
                 {errors.message}
               </p>
             )}
@@ -190,29 +191,33 @@ export default function ContactForm() {
 
         <button
           type="submit"
-          className="mt-8 w-full rounded-full bg-[#c84b31] px-8 py-4 text-sm font-semibold tracking-tight text-white transition-colors hover:bg-[#a63d27] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c84b31] focus-visible:ring-offset-2 focus-visible:ring-offset-[#5f452e]"
+          className="mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-[#d4a853] px-8 py-4 text-sm font-semibold tracking-tight text-[#3d2c1a] transition-all duration-300 hover:bg-[#e8c882] hover:shadow-lg hover:shadow-[#d4a853]/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a853] focus-visible:ring-offset-2 focus-visible:ring-offset-[#5f452e]"
         >
           Send Message
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 2 11 13" />
+            <path d="M22 2l-7 20-4-9-9-4 20-7z" />
+          </svg>
         </button>
       </form>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
         <div className="pr-8">
           <p
-            className="mb-2 text-sm font-semibold uppercase tracking-[0.14em]"
-            style={{ color: '#c84b31' }}
+            className="mb-2 text-xs font-semibold uppercase tracking-[0.2em]"
+            style={{ color: '#d4a853' }}
           >
             Message Sent
           </p>
           <h2
-            className="text-3xl font-semibold tracking-tighter"
+            className="font-display text-3xl font-semibold tracking-tight"
             style={{ color: 'rgba(20,16,12,0.9)' }}
           >
             Thank you for reaching out.
           </h2>
         </div>
         <p
-          className="mt-5 text-sm leading-6"
+          className="mt-5 text-sm leading-relaxed"
           style={{ color: 'rgba(20,16,12,0.68)' }}
         >
           We received your message and will get back to you within 24 hours.
@@ -220,7 +225,7 @@ export default function ContactForm() {
         <button
           type="button"
           onClick={() => setIsModalOpen(false)}
-          className="mt-7 w-full rounded-full bg-[#c84b31] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#a63d27] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c84b31] focus-visible:ring-offset-2"
+          className="mt-7 w-full rounded-full bg-[#d4a853] px-6 py-3 text-sm font-semibold text-[#3d2c1a] transition-all duration-300 hover:bg-[#e8c882] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a853] focus-visible:ring-offset-2"
         >
           Close
         </button>

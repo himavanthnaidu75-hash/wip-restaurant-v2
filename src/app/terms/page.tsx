@@ -40,6 +40,9 @@ export const metadata: Metadata = {
   title: 'Terms of Service',
   description:
     'Read the W.I.P Restaurant Terms of Service, including reservations, cancellations, menu changes, allergens, and governing law.',
+  alternates: {
+    canonical: '/terms',
+  },
 };
 
 export default function TermsPage() {

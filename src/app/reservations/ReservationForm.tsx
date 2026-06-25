@@ -43,16 +43,16 @@ const initialForm: FormState = {
 };
 
 const fieldBaseClass =
-  'w-full rounded-lg px-4 py-3 text-sm transition-shadow focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c84b31] focus-visible:ring-offset-2 focus-visible:ring-offset-[#5f452e]';
+  'w-full rounded-lg px-4 py-3 text-sm transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a853] focus-visible:ring-offset-2 focus-visible:ring-offset-[#5f452e]';
 
 const fieldStyle = {
-  backgroundColor: 'rgba(255,255,255,0.05)',
-  border: '1px solid rgba(255,255,255,0.1)',
+  backgroundColor: 'rgba(255,255,255,0.04)',
+  border: '1px solid rgba(255,255,255,0.08)',
   color: 'rgba(255,255,255,0.9)',
 } satisfies CSSProperties;
 
 const labelStyle = {
-  color: 'rgba(255,255,255,0.68)',
+  color: 'rgba(255,255,255,0.65)',
 } satisfies CSSProperties;
 
 function getTodayIso() {
@@ -175,7 +175,7 @@ export default function ReservationForm() {
     return (
       <p
         id={`${field}-error`}
-        className="mt-2 text-sm"
+        className="mt-1.5 text-sm"
         style={{ color: '#ffb4a8' }}
       >
         {errors[field]}
@@ -188,10 +188,11 @@ export default function ReservationForm() {
       <form
         noValidate
         onSubmit={handleSubmit}
-        className="rounded-lg p-6 md:p-8"
+        className="rounded-xl p-6 md:p-8"
         style={{
-          backgroundColor: 'rgba(255,255,255,0.05)',
-          border: '1px solid rgba(255,255,255,0.1)',
+          backgroundColor: 'rgba(255,255,255,0.04)',
+          backdropFilter: 'blur(12px)',
+          border: '1px solid rgba(212,168,83,0.1)',
         }}
       >
         <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
@@ -341,22 +342,28 @@ export default function ReservationForm() {
         <button
           type="submit"
           disabled={isLoading}
-          className="mt-8 flex w-full items-center justify-center rounded-full bg-[#c84b31] px-8 py-4 text-sm font-semibold tracking-tight text-white transition-colors hover:bg-[#a63d27] disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c84b31] focus-visible:ring-offset-2 focus-visible:ring-offset-[#5f452e]"
+          className="mt-8 flex w-full items-center justify-center gap-2 rounded-full bg-[#d4a853] px-8 py-4 text-sm font-semibold tracking-tight text-[#3d2c1a] transition-all duration-300 hover:bg-[#e8c882] hover:shadow-lg hover:shadow-[#d4a853]/20 disabled:cursor-not-allowed disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a853] focus-visible:ring-offset-2 focus-visible:ring-offset-[#5f452e]"
         >
           {isLoading ? (
             <>
               <span
-                className="mr-3 h-4 w-4 animate-spin rounded-full border-2"
+                className="h-4 w-4 animate-spin rounded-full border-2"
                 style={{
-                  borderColor: 'rgba(255,255,255,0.35)',
-                  borderTopColor: 'white',
+                  borderColor: 'rgba(61,44,26,0.25)',
+                  borderTopColor: '#3d2c1a',
                 }}
                 aria-hidden="true"
               />
               Sending Request
             </>
           ) : (
-            'Reserve Now'
+            <>
+              Reserve Now
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M5 12h14" />
+                <path d="m12 5 7 7-7 7" />
+              </svg>
+            </>
           )}
         </button>
       </form>
@@ -364,20 +371,20 @@ export default function ReservationForm() {
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)}>
         <div className="pr-8">
           <p
-            className="mb-2 text-sm font-semibold uppercase tracking-[0.14em]"
-            style={{ color: '#c84b31' }}
+            className="mb-2 text-xs font-semibold uppercase tracking-[0.2em]"
+            style={{ color: '#d4a853' }}
           >
             Reservation Request Received
           </p>
           <h2
-            className="text-3xl font-semibold tracking-tighter"
+            className="font-display text-3xl font-semibold tracking-tight"
             style={{ color: 'rgba(20,16,12,0.9)' }}
           >
             Thank you.
           </h2>
         </div>
         <p
-          className="mt-5 text-sm leading-6"
+          className="mt-5 text-sm leading-relaxed"
           style={{ color: 'rgba(20,16,12,0.68)' }}
         >
           {confirmationMessage}
@@ -385,7 +392,7 @@ export default function ReservationForm() {
         <button
           type="button"
           onClick={() => setIsModalOpen(false)}
-          className="mt-7 w-full rounded-full bg-[#c84b31] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#a63d27] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c84b31] focus-visible:ring-offset-2"
+          className="mt-7 w-full rounded-full bg-[#d4a853] px-6 py-3 text-sm font-semibold text-[#3d2c1a] transition-all duration-300 hover:bg-[#e8c882] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a853] focus-visible:ring-offset-2"
         >
           Close
         </button>

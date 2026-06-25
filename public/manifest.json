@@ -1,0 +1,17 @@
+{
+  "name": "W.I.P Restaurant - Handmade Pasta in Little Italy, NY",
+  "short_name": "W.I.P Restaurant",
+  "description": "Experience authentic handmade pasta at W.I.P Restaurant in Little Italy, New York.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#5f452e",
+  "theme_color": "#5f452e",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

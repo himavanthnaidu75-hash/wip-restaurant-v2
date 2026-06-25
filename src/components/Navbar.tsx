@@ -20,7 +20,7 @@ const navLinks = [
 ];
 
 const linkFocusClass =
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c84b31] focus-visible:ring-offset-2 focus-visible:ring-offset-[#5f452e]';
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#d4a853] focus-visible:ring-offset-2 focus-visible:ring-offset-[#5f452e]';
 
 function getInitialScrollProgress() {
   if (typeof window === 'undefined') {
@@ -111,12 +111,15 @@ export default function Navbar() {
       <AnimatePresence>
         {isVisible && (
           <motion.header
-            className="fixed left-0 right-0 top-0 z-50 transition-colors duration-300"
+            className="fixed left-0 right-0 top-0 z-50"
             style={{
-              backgroundColor: isScrolled ? 'rgba(61,44,26,0.94)' : 'transparent',
-              backdropFilter: isScrolled ? 'blur(16px)' : 'none',
+              backgroundColor: isScrolled
+                ? 'rgba(61,44,26,0.85)'
+                : 'rgba(61,44,26,0)',
+              backdropFilter: isScrolled ? 'blur(20px) saturate(1.4)' : 'blur(0px)',
+              WebkitBackdropFilter: isScrolled ? 'blur(20px) saturate(1.4)' : 'blur(0px)',
               borderBottom: isScrolled
-                ? '1px solid rgba(255,255,255,0.1)'
+                ? '1px solid rgba(212,168,83,0.12)'
                 : '1px solid transparent',
             }}
             initial={{ opacity: 0, y: -24 }}
@@ -133,23 +136,33 @@ export default function Navbar() {
                 scroll={false}
                 onClick={(event) => handleNavigation(event, '/')}
                 aria-label="Navigate to home"
-                className={`flex rounded-sm ${linkFocusClass}`}
+                className={`flex items-center gap-2 rounded-sm ${linkFocusClass}`}
               >
-                <span
-                  className="text-xl font-bold tracking-tighter"
-                  style={{ color: 'rgba(255,255,255,0.9)' }}
-                >
-                  W.I.P
-                </span>
-                <span
-                  className="ml-1 text-sm font-semibold tracking-tight"
-                  style={{ color: '#c84b31' }}
-                >
-                  Restaurant
-                </span>
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d4a853]/20 backdrop-blur-sm">
+                  <span
+                    className="text-xs font-bold tracking-tighter"
+                    style={{ color: '#d4a853' }}
+                  >
+                    W
+                  </span>
+                </div>
+                <div className="flex items-baseline">
+                  <span
+                    className="text-lg font-bold tracking-tighter"
+                    style={{ color: 'rgba(255,255,255,0.9)' }}
+                  >
+                    W.I.P
+                  </span>
+                  <span
+                    className="ml-1.5 text-xs font-semibold tracking-tight uppercase"
+                    style={{ color: '#d4a853' }}
+                  >
+                    Restaurant
+                  </span>
+                </div>
               </Link>
 
-              <div className="hidden items-center gap-8 md:flex">
+              <div className="hidden items-center gap-1 md:flex">
                 {navLinks.map((link) => {
                   const isActive = pathname === link.href;
 
@@ -160,17 +173,35 @@ export default function Navbar() {
                       scroll={false}
                       onClick={(event) => handleNavigation(event, link.href)}
                       aria-label={`Navigate to ${link.label}`}
-                      className={`rounded-sm text-sm font-medium tracking-tight transition-colors hover:text-white ${linkFocusClass}`}
+                      className={`relative rounded-full px-4 py-2 text-sm font-medium tracking-tight transition-all duration-300 ${linkFocusClass}`}
                       style={{
                         color: isActive
-                          ? 'rgba(255,255,255,0.9)'
-                          : 'rgba(255,255,255,0.62)',
+                          ? 'rgba(255,255,255,0.95)'
+                          : 'rgba(255,255,255,0.6)',
                       }}
                     >
-                      {link.label}
+                      {isActive && (
+                        <motion.span
+                          layoutId="nav-active"
+                          className="absolute inset-0 rounded-full"
+                          style={{
+                            backgroundColor: 'rgba(212,168,83,0.12)',
+                            border: '1px solid rgba(212,168,83,0.2)',
+                          }}
+                          transition={{ type: 'spring', stiffness: 380, damping: 30 }}
+                        />
+                      )}
+                      <span className="relative z-10">{link.label}</span>
                     </Link>
                   );
                 })}
+
+                <Link
+                  href="/reservations"
+                  className="ml-4 rounded-full bg-[#d4a853] px-5 py-2 text-sm font-semibold text-[#3d2c1a] transition-all duration-300 hover:bg-[#e8c882] hover:shadow-lg hover:shadow-[#d4a853]/20"
+                >
+                  Reserve
+                </Link>
               </div>
 
               <button
@@ -214,7 +245,7 @@ export default function Navbar() {
             <button
               type="button"
               className="absolute inset-0 h-full w-full cursor-default"
-              style={{ backgroundColor: 'rgba(0,0,0,0.48)' }}
+              style={{ backgroundColor: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
               onClick={() => setMobileOpen(false)}
               aria-label="Close navigation menu"
             />
@@ -222,8 +253,9 @@ export default function Navbar() {
               id="mobile-navigation"
               className="absolute right-0 top-0 flex h-full w-80 max-w-[86vw] flex-col px-6 py-8"
               style={{
-                backgroundColor: '#3d2c1a',
-                borderLeft: '1px solid rgba(255,255,255,0.1)',
+                backgroundColor: 'rgba(61,44,26,0.95)',
+                backdropFilter: 'blur(24px)',
+                borderLeft: '1px solid rgba(212,168,83,0.15)',
               }}
               initial={{ x: '100%' }}
               animate={{ x: 0 }}
@@ -232,19 +264,24 @@ export default function Navbar() {
               aria-label="Mobile navigation"
             >
               <div className="mb-10 flex items-center justify-between">
-                <div className="flex items-baseline">
-                  <span
-                    className="text-xl font-bold tracking-tighter"
-                    style={{ color: 'rgba(255,255,255,0.9)' }}
-                  >
-                    W.I.P
-                  </span>
-                  <span
-                    className="ml-1 text-sm font-semibold"
-                    style={{ color: '#c84b31' }}
-                  >
-                    Restaurant
-                  </span>
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d4a853]/20">
+                    <span className="text-xs font-bold text-[#d4a853]">W</span>
+                  </div>
+                  <div className="flex items-baseline">
+                    <span
+                      className="text-xl font-bold tracking-tighter"
+                      style={{ color: 'rgba(255,255,255,0.9)' }}
+                    >
+                      W.I.P
+                    </span>
+                    <span
+                      className="ml-1.5 text-xs font-semibold uppercase"
+                      style={{ color: '#d4a853' }}
+                    >
+                      Restaurant
+                    </span>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -253,11 +290,14 @@ export default function Navbar() {
                   style={{ color: 'rgba(255,255,255,0.75)' }}
                   aria-label="Close navigation menu"
                 >
-                  X
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6 6 18" />
+                    <path d="m6 6 12 12" />
+                  </svg>
                 </button>
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-1.5">
                 {navLinks.map((link, index) => {
                   const isActive = pathname === link.href;
 
@@ -273,12 +313,15 @@ export default function Navbar() {
                         scroll={false}
                         onClick={(event) => handleNavigation(event, link.href)}
                         aria-label={`Navigate to ${link.label}`}
-                        className={`block rounded-lg px-3 py-4 text-lg font-medium tracking-tight ${linkFocusClass}`}
+                        className={`block rounded-lg px-4 py-3.5 text-base font-medium tracking-tight transition-all ${linkFocusClass}`}
                         style={{
                           backgroundColor: isActive
-                            ? 'rgba(200,75,49,0.16)'
+                            ? 'rgba(212,168,83,0.1)'
                             : 'transparent',
-                          color: isActive ? '#c84b31' : 'rgba(255,255,255,0.72)',
+                          border: isActive
+                            ? '1px solid rgba(212,168,83,0.2)'
+                            : '1px solid transparent',
+                          color: isActive ? '#d4a853' : 'rgba(255,255,255,0.72)',
                         }}
                       >
                         {link.label}
@@ -286,6 +329,20 @@ export default function Navbar() {
                     </motion.div>
                   );
                 })}
+              </div>
+
+              <div className="mt-auto pt-8">
+                <Link
+                  href="/reservations"
+                  onClick={() => setMobileOpen(false)}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-[#d4a853] px-6 py-3.5 text-sm font-semibold text-[#3d2c1a] transition-all hover:bg-[#e8c882]"
+                >
+                  Reserve a Table
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 12h14" />
+                    <path d="m12 5 7 7-7 7" />
+                  </svg>
+                </Link>
               </div>
             </motion.aside>
           </motion.div>

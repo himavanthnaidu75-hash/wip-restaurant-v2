@@ -44,6 +44,9 @@ export const metadata: Metadata = {
   title: 'Privacy Policy',
   description:
     'Read the W.I.P Restaurant Privacy Policy, including how reservation and contact information is collected, used, and protected.',
+  alternates: {
+    canonical: '/privacy',
+  },
 };
 
 export default function PrivacyPage() {
