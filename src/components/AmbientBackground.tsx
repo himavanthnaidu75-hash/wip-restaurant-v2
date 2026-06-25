@@ -1,11 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 const TOTAL_FRAMES = 260;
+const INITIAL_BATCH = 30;
+const BATCH_SIZE = 25;
+const BATCH_DELAY = 80;
 
 function framePath(index: number): string {
-  return `/sequence/ezgif-frame-${String(index + 1).padStart(3, '0')}.png`;
+  return `/sequence/ezgif-frame-${String(index + 1).padStart(3, '0')}.webp`;
 }
 
 export default function AmbientBackground() {
@@ -16,25 +19,23 @@ export default function AmbientBackground() {
   const pendingFrameRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
   const imgDims = useRef({ w: 0, h: 0 });
+  const [ready, setReady] = useState(false);
+  const loadedCountRef = useRef(0);
 
-  // ─── Draw a single frame with object-fit: cover logic ──────────────
   const drawFrame = useCallback((index: number) => {
     const ctx = ctxRef.current;
     const canvas = canvasRef.current;
     const img = framesRef.current.get(index);
     if (!ctx || !canvas || !img) return;
 
-    // Capture native image dimensions once
     if (imgDims.current.w === 0) {
       imgDims.current = { w: img.naturalWidth, h: img.naturalHeight };
     }
 
     const vw = window.innerWidth;
     const vh = window.innerHeight;
-    // Use device pixel ratio for crisp rendering (cap at 2x for perf)
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
 
-    // Size the canvas buffer to match viewport × DPR
     const bufW = Math.round(vw * dpr);
     const bufH = Math.round(vh * dpr);
     if (canvas.width !== bufW || canvas.height !== bufH) {
@@ -44,18 +45,15 @@ export default function AmbientBackground() {
       canvas.style.height = `${vh}px`;
     }
 
-    // Cover-fit: scale up to fill, then center
     const { w: imgW, h: imgH } = imgDims.current;
     const imgAspect = imgW / imgH;
     const canvasAspect = bufW / bufH;
 
     let drawW: number, drawH: number;
     if (imgAspect > canvasAspect) {
-      // Image is wider than canvas → fit by height, crop sides
       drawH = bufH;
       drawW = bufH * imgAspect;
     } else {
-      // Image is taller → fit by width, crop top/bottom
       drawW = bufW;
       drawH = bufW / imgAspect;
     }
@@ -71,44 +69,65 @@ export default function AmbientBackground() {
     currentFrameRef.current = index;
   }, []);
 
-  // ─── Setup canvas context ──────────────────────────────────────────
   useEffect(() => {
     if (canvasRef.current) {
       ctxRef.current = canvasRef.current.getContext('2d', { alpha: false });
     }
   }, []);
 
-  // ─── Preload frames progressively ─────────────────────────────────
+  // ─── Preload frames with priority batching ───────────────────────
   useEffect(() => {
-    const load = (idx: number) => {
-      if (framesRef.current.has(idx)) return;
-      const img = new Image();
-      img.onload = () => {
-        framesRef.current.set(idx, img);
-        // Draw first frame as soon as it lands
-        if (idx === 0 && currentFrameRef.current === -1) {
-          drawFrame(0);
-        }
-        // If scroll was waiting for this frame, draw it now
-        if (pendingFrameRef.current === idx) {
-          drawFrame(idx);
-          pendingFrameRef.current = null;
-        }
-      };
-      img.src = framePath(idx);
+    const load = (idx: number): Promise<void> => {
+      if (framesRef.current.has(idx)) return Promise.resolve();
+      return new Promise((resolve) => {
+        const img = new Image();
+        img.decoding = 'async';
+        img.onload = () => {
+          framesRef.current.set(idx, img);
+          loadedCountRef.current++;
+
+          if (idx === 0 && currentFrameRef.current === -1) {
+            drawFrame(0);
+          }
+          if (pendingFrameRef.current === idx) {
+            drawFrame(idx);
+            pendingFrameRef.current = null;
+          }
+
+          // Show after first batch lands
+          if (loadedCountRef.current === INITIAL_BATCH) {
+            setReady(true);
+          }
+
+          resolve();
+        };
+        img.onerror = () => resolve();
+        img.src = framePath(idx);
+      });
     };
 
-    // Priority batch: first 8 frames instantly
-    for (let i = 0; i < 8; i++) load(i);
+    // Phase 1: load first INITIAL_BATCH frames, then show
+    const loadInitial = async () => {
+      const batch = [];
+      for (let i = 0; i < INITIAL_BATCH; i++) {
+        batch.push(load(i));
+      }
+      await Promise.all(batch);
+      setReady(true);
+    };
+    loadInitial();
 
-    // Load the rest in batches of 20, spaced 150ms apart
-    let cursor = 8;
+    // Phase 2: load remaining frames in background batches
+    let cursor = INITIAL_BATCH;
     const timer = setInterval(() => {
-      const end = Math.min(cursor + 20, TOTAL_FRAMES);
+      const end = Math.min(cursor + BATCH_SIZE, TOTAL_FRAMES);
+      if (cursor >= TOTAL_FRAMES) {
+        clearInterval(timer);
+        return;
+      }
       for (let i = cursor; i < end; i++) load(i);
       cursor = end;
-      if (cursor >= TOTAL_FRAMES) clearInterval(timer);
-    }, 150);
+    }, BATCH_DELAY);
 
     return () => clearInterval(timer);
   }, [drawFrame]);
@@ -116,7 +135,7 @@ export default function AmbientBackground() {
   // ─── Scroll-driven frame selection ────────────────────────────────
   useEffect(() => {
     const onScroll = () => {
-      if (rafRef.current !== null) return; // already queued
+      if (rafRef.current !== null) return;
 
       rafRef.current = requestAnimationFrame(() => {
         rafRef.current = null;
@@ -136,9 +155,7 @@ export default function AmbientBackground() {
         if (framesRef.current.has(frameIndex)) {
           drawFrame(frameIndex);
         } else {
-          // Frame not loaded yet — show the closest loaded frame and mark pending
           pendingFrameRef.current = frameIndex;
-          // Find nearest loaded frame
           for (let delta = 1; delta < 10; delta++) {
             const below = frameIndex - delta;
             const above = frameIndex + delta;
@@ -156,7 +173,6 @@ export default function AmbientBackground() {
     };
 
     window.addEventListener('scroll', onScroll, { passive: true });
-    // Draw initial frame on mount
     onScroll();
 
     return () => {
@@ -181,15 +197,38 @@ export default function AmbientBackground() {
       <canvas
         ref={canvasRef}
         className="absolute inset-0"
-        style={{ display: 'block' }}
+        style={{
+          display: 'block',
+          opacity: ready ? 1 : 0,
+          transition: 'opacity 0.6s ease-in-out',
+        }}
       />
-      {/* Semi-transparent overlay — light enough to see the animation, 
-          dark enough for white text readability */}
+      {/* Loading indicator */}
+      {!ready && (
+        <div className="absolute inset-0 flex items-center justify-center bg-[#1a1209]">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-1 w-32 overflow-hidden rounded-full bg-white/10">
+              <div
+                className="h-full rounded-full bg-[#d4a853]"
+                style={{
+                  animation: 'loading-bar 2s ease-in-out forwards',
+                }}
+              />
+            </div>
+            <p className="text-sm tracking-widest text-white/40 uppercase">
+              Loading...
+            </p>
+          </div>
+        </div>
+      )}
+      {/* Semi-transparent overlay */}
       <div
         className="absolute inset-0"
         style={{
           background:
             'linear-gradient(180deg, rgba(20,14,8,0.45) 0%, rgba(30,20,12,0.35) 40%, rgba(20,14,8,0.55) 100%)',
+          opacity: ready ? 1 : 0,
+          transition: 'opacity 0.6s ease-in-out',
         }}
       />
       {/* Film-grain texture */}
@@ -199,6 +238,7 @@ export default function AmbientBackground() {
           backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E")`,
           backgroundRepeat: 'repeat',
           backgroundSize: '256px 256px',
+          opacity: ready ? 0.025 : 0,
         }}
       />
     </div>
